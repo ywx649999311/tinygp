@@ -28,7 +28,7 @@ __all__ = [
 ]
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional, Union, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import jax
 import jax.numpy as jnp
