@@ -28,7 +28,7 @@ __all__ = [
 ]
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -40,7 +40,6 @@ from tinygp.kernels.base import Kernel
 from tinygp.solvers.quasisep.core import DiagQSM, StrictLowerTriQSM, SymmQSM
 from tinygp.solvers.quasisep.general import GeneralQSM
 
-# jax.config.update("jax_enable_x64", True)
 eta = 1e-20  # avoid nan
 
 
@@ -757,13 +756,13 @@ class CARMA(Quasisep):
 
     @staticmethod
     @jax.jit
-    def roots(poly_coeffs):
+    def roots(poly_coeffs: JAXArray) -> JAXArray:
         roots = jnp.roots(poly_coeffs[::-1], strip_zeros=False)
         return roots[jnp.argsort(roots.real)]
 
     @staticmethod
     @jax.jit
-    def fpoly2poly(fpoly_coeffs):
+    def fpoly2poly(fpoly_coeffs: JAXArray) -> JAXArray:
         """Expand the factoreized characteristic polynomial"""
 
         size = fpoly_coeffs.shape[0] - 1
@@ -794,7 +793,7 @@ class CARMA(Quasisep):
         return poly[::-1] * mult_f
 
     @staticmethod
-    def poly2fpoly(poly_coeffs):
+    def poly2fpoly(poly_coeffs: JAXArray) -> Tuple:
         """Factorize a polynomial into product of quadratic equations"""
 
         fpoly = jnp.empty((0))
@@ -825,7 +824,9 @@ class CARMA(Quasisep):
         return fpoly, jnp.array(mult_f)
 
     @staticmethod
-    def carma_acf(arroots, arparam, maparam):
+    def carma_acf(
+        arroots: JAXArray, arparam: JAXArray, maparam: JAXArray
+    ) -> JAXArray:
         """Get ACVF coefficients given CARMA parameters
 
         Args:
