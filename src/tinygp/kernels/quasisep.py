@@ -34,6 +34,7 @@ import jax
 import jax.numpy as jnp
 import jax.scipy as jsp
 import numpy as np
+from jax import lax, custom_jvp
 
 from tinygp.helpers import JAXArray, dataclass, field
 from tinygp.kernels.base import Kernel
@@ -710,8 +711,8 @@ class CARMA(Quasisep):
         d2 = jnp.square(d)
         s2 = c2 + d2
         h2_2 = d2 * (a * c - b * d) / (2 * c * s2 + eta * real_mask)
-        h2 = jnp.sqrt(h2_2)
-        h1 = (c * h2 - jnp.sqrt(a * d2 - s2 * h2_2)) / (d + eta * real_mask)
+        h2 = _safe_sqrt(h2_2)
+        h1 = (c * h2 - _safe_sqrt(a * d2 - s2 * h2_2)) / (d + eta * real_mask)
         om_complex = jnp.array([h1, h2])
 
         obsmodel = (om_real * real_mask) + jnp.ravel(om_complex)[
@@ -958,3 +959,41 @@ def _prod_helper(a1: JAXArray, a2: JAXArray) -> JAXArray:
         return a1[i[:, None], i[None, :]] * a2[j[:, None], j[None, :]]
     else:
         raise NotImplementedError
+
+@custom_jvp
+def _safe_sqrt(x: JAXArray) -> JAXArray:
+    """
+    A function that computes the square root of an input JAXArray.
+
+    Args:
+        x (JAXArray): The input array.
+
+    Returns:
+        JAXArray: The array containing the square roots of the input elements.
+    """    
+    return jnp.sqrt(x)
+
+@_safe_sqrt.defjvp
+def _safe_sqrt_jvp(xpack: JAXArray, vpack: JAXArray) -> JAXArray:
+    """A JVP rule function for the `_safe_sqrt` function.
+
+    Args:
+        xpack (JAXArray): A tuple containing the input array.
+        vpack (JAXArray): A tuple containing the tangent array.
+
+    Returns:
+        JAXArray: A tuple containing the forward and tangent arrays,
+            respectively.
+    
+    Notes:
+        The source is the discussion in
+        https://github.com/google/jax/issues/5798
+    """
+    x, = xpack
+    v, = vpack
+    f = _safe_sqrt(x)
+    df = v * lax.cond( jnp.any(x) > 0.0,
+                       lambda x: 0.5/jnp.sqrt(x),
+                       lambda x: jnp.array([0.0]),
+                       x )           
+    return f, df
